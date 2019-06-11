@@ -1,48 +1,100 @@
+import { Component } from '../component';
+
 // 生成组件实例
 function createComponent(vNode) {
   const {
     props,
-    tag: Component
+    tag: Ctor
   } = vNode;
 
-  if (Component.prototype && Component.prototype.render) {
-    let instance = new Component(props);
+  if (Ctor.prototype && Ctor.prototype.render) {
+    let instance = new Ctor(props);
+    Component.call(instance, props);
     return instance;
   } else {
-    return Component(props);
+    let instance = new Component(props);
+    instance.constructor = Ctor;
+    instance.render = function() {
+      return this.constructor(props);
+    }
+    return instance;
   }
 }
 
 
 // 生成真实节点
-function createDom(tag) {
-  return tag ? document.createElement(tag) : document.createTextNode(vNode);
+function createDom(vNode) {
+  return vNode.tag ? document.createElement(vNode.tag) : document.createTextNode(vNode);
 }
 
 
-// 设置组件props
-function setComponentProps() {
+// 设置 dom props
+function setComponentProps(dom, props) {
+  for (let propsName in props) {
+    const propsValue = props[propsName];
 
-}
+    if (propsName === 'className') {
+      dom.className = propsValue;
+    } else if (propsName === 'children') {
+      // donothing
+    } else if (propsName[0] === 'o' && propsName[1] === 'n') {
+      const eventName = propsName.toLowerCase().substring(2);
 
+      if (propsValue) {
+        dom.addEventListener(eventName, propsValue);
+      }
 
-// 构建虚拟节点
-function buildComponent(vNode) {
-  const {
-    tag,
-    props,
-    children
-  } = vNode;
-
-  if (typeof tag === 'function') {
-    const inst = createComponent(vNode);
-  } else {
-    const dom = createDom(tag);
+    } else {
+      dom.setAttribute(propsName, propsValue);
+    }
   }
 }
 
 
-// 渲染组件
-function renderComponent(componentInstance) {
+// 构建虚拟节点
+export function buildVNode(vNode) {
+  const {
+    tag,
+    props
+  } = vNode;
 
+  let dom = null;
+
+  if (typeof tag === 'function') {
+    const inst = createComponent(vNode);
+    renderComponent(inst);
+    dom = inst._dom;
+  } else {
+    dom = createDom(vNode);
+
+    setComponentProps(dom, props);
+
+    if (props && props.children) {
+      for (let i in props.children) {
+        dom.appendChild(buildVNode(props.children[i]));
+      }
+    }
+  }
+
+  return dom;
+}
+
+
+// 渲染组件
+export function renderComponent(componentInstance) {
+  const {
+    _dom
+  } = componentInstance;
+
+  const componentVNode = componentInstance.render();
+
+  const dom = buildVNode(componentVNode);
+
+  // 更新
+  if (_dom) {
+    _dom.parentElement.replaceChild(dom, _dom);
+  }
+
+
+  componentInstance._dom = dom;
 }

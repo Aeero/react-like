@@ -6,9 +6,9 @@ class VNode {
   ) {
     this.tag = tag || '';
     this.props = props || {};
-    this.children = children || [];
+    this.children = children ? children.flat():  [];
 
-    this.props.children = children;
+    this.props.children = this.children;
   }
 }
 
